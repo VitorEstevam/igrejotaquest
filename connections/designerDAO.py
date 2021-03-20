@@ -1,98 +1,62 @@
-from connections.connection import data
+from connections.connection import DAO
 import psycopg2
-import traceback
 from psycopg2.extras import RealDictCursor
 import json
 
 
-class DesignerDAO():
-    def insert_on_db(self, name):
-        success = False
+class DesignerDAO(DAO):
+
+    def insert_on_db(self, name):  # create
+        response = []
         try:
-            _connect = psycopg2.connect(
-                host=data['host'],
-                database=data['database'],
-                user=data['user'],
-                password=data['password'])
+            _connect = self._initialize_connection()
             _cursor = _connect.cursor()
             _cursor.execute(f"INSERT INTO designer(nome)VALUES ('{name}');")
-            id = _cursor.execute(f"SELECT max(id) from designer")
-            _connect.commit()
-            success = (_cursor.rowcount == 1)
-
-        except (Exception, psycopg2.Error) as error:
-            traceback.print_exc()
-        finally:
-            if(_connect):
-                _cursor.close()
-                _connect.close()
-
-        if(success):
-            return "success"
-        else:
-            return "fail"
-
-    def remove_from_db(self, id):
-        success = False
-        try:
-            _connect = psycopg2.connect(
-                host=data['host'],
-                database=data['database'],
-                user=data['user'],
-                password=data['password'])
-            _cursor = _connect.cursor()
-            _cursor.execute(f"DELETE FROM designer WHERE id = {str(id)}")
-            _connect.commit()
-            success = (_cursor.rowcount == 1)
-
-        except (Exception, psycopg2.Error) as error:
-            traceback.print_exc()
-        finally:
-            if(_connect):
-                _cursor.close()
-                _connect.close()
-
-        if(success):
-            return "success"
-        else:
-            return "fail"
-
-    def update_on_db(self, id, nome):
-        success = False
-        try:
-            _connect = psycopg2.connect(
-                host=data['host'],
-                database=data['database'],
-                user=data['user'],
-                password=data['password'])
-
-            _cursor = _connect.cursor()
             _cursor.execute(
-                f"UPDATE designer set nome='{nome}' WHERE id={str(id)};")
+                f"SELECT id FROM Designer WHERE id = (SELECT max(id) FROM designer)")
             _connect.commit()
-
-            success = (_cursor.rowcount == 1)
+            response = _cursor.fetchone()
 
         except (Exception, psycopg2.Error) as error:
-            traceback.print_exc()
+            if(_connect):
+                _cursor.close()
+                _connect.close()
+            return "an error occurred"
+
         finally:
             if(_connect):
                 _cursor.close()
                 _connect.close()
-        if(success):
-            return "success"
-        else:
-            return "fail"
 
-    def select_all_from_db(self):
+        return json.dumps(response[0])
+
+    def select_from_db(self, id):  # read single
+        response = ''
+        try:
+            _connect = self._initialize_connection()
+            _cursor = _connect.cursor(cursor_factory=RealDictCursor)
+            _cursor.execute(
+                f"select id,nome from designer where id = {str(id)}")
+            _connect.commit()
+            response = _cursor.fetchone()
+
+        except (Exception, psycopg2.Error) as error:
+            if(_connect):
+                _cursor.close()
+                _connect.close()
+            return "an error occurred"
+
+        finally:
+            if(_connect):
+                _cursor.close()
+                _connect.close()
+
+        return json.dumps(response)
+
+    def select_all_from_db(self):  # read all
         results = []
         try:
-            _connect = psycopg2.connect(
-                host=data['host'],
-                database=data['database'],
-                user=data['user'],
-                password=data['password'])
-
+            _connect = self._initialize_connection()
             _cursor = _connect.cursor(cursor_factory=RealDictCursor)
             _cursor.execute(f"select id,nome from designer")
             _connect.commit()
@@ -100,39 +64,61 @@ class DesignerDAO():
             response = _cursor.fetchall()
 
         except (Exception, psycopg2.Error) as error:
-            traceback.print_exc()
-            return "error"
+            if(_connect):
+                _cursor.close()
+                _connect.close()
+            return "an error occurred"
+
         finally:
             if(_connect):
                 _cursor.close()
                 _connect.close()
 
-        response = json.dumps(response)
-        return response
+        return json.dumps(response)
 
-    def select_from_db(self, id):
-        designer = None
+    def update_on_db(self, id, nome):  # update
+        response = []
         try:
-            _connect = psycopg2.connect(
-                host=data['host'],
-                database=data['database'],
-                user=data['user'],
-                password=data['password'])
-
-            _cursor = _connect.cursor(cursor_factory=RealDictCursor)
+            _connect = self._initialize_connection()
+            _cursor = _connect.cursor()
             _cursor.execute(
-                f"select id,nome from designer where id = {str(id)}")
+                f"UPDATE designer set nome='{nome}' WHERE id={str(id)};")
+            _cursor.execute(f'SELECT * FROM designer where id = {str(id)}')
             _connect.commit()
-
             response = _cursor.fetchone()
 
         except (Exception, psycopg2.Error) as error:
-            traceback.print_exc()
-            return "error"
+            if(_connect):
+                _cursor.close()
+                _connect.close()
+            return "an error occurred"
+
+        finally:
+            if(_connect):
+                _cursor.close()
+                _connect.close()
+        return json.dumps(response[0])
+
+    def remove_from_db(self, id):  # delete
+        response = ''
+        try:
+            _connect = self._initialize_connection()
+            _cursor = _connect.cursor()
+            _cursor.execute(f"DELETE FROM designer WHERE id = {str(id)}")
+            _cursor.execute(f'SELECT * FROM designer where id = {str(id)}')
+            _connect.commit()
+            response = _cursor.fetchone()
+
+        except (Exception, psycopg2.Error) as error:
+            if(_connect):
+                _cursor.close()
+                _connect.close()
+
+            return "an error occurred"
         finally:
             if(_connect):
                 _cursor.close()
                 _connect.close()
 
-        designer = json.dumps(response)
-        return designer
+        if(response == None):
+            return 'deleted'
